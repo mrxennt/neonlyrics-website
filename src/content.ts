@@ -220,7 +220,7 @@ export const faq = {
     },
     {
       q: 'Can I build it from source?',
-      a: 'Yes: ./gradlew build. Sources compile with --release 25 but fork onto a JDK 26 install (set it in build.gradle), while Gradle itself runs on a JDK 25 (org.gradle.java.home).',
+      a: 'Yes: ./gradlew build. Sources compile as Java 25 bytecode but fork onto a JDK 26 install (set it in build.gradle), while Gradle itself runs on a JDK 25 (org.gradle.java.home).',
     },
   ],
 }
