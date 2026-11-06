@@ -141,7 +141,7 @@ export function SkyShowcase({ settings, playing, setPlaying, restart, nextSong }
 
         <Reveal className="mt-12">
           <div className="depth relative mx-auto overflow-hidden rounded-card bg-[#0a0714] shadow-glow">
-            <div className="relative aspect-16/10 [container-type:inline-size] sm:aspect-21/9">
+            <div className="relative aspect-16/9 [container-type:inline-size]">
               {/* Sky: real preset data (or a plain vanilla night when off) */}
               {settings.skyEnabled ? (
                 <SkyThumb skyIndex={settings.sky} palette={settings.palette} moving />
@@ -155,8 +155,6 @@ export function SkyShowcase({ settings, playing, setPlaying, restart, nextSong }
                 </div>
               )}
 
-              {/* Ground silhouette + fog fade like the mod's terrain blending */}
-              <div aria-hidden className="absolute inset-x-0 bottom-0 h-[16%] [background:linear-gradient(180deg,transparent,rgb(6_4_10/0.9))]" />
 
               {/* Music-reactive glow behind the lyric row */}
               {settings.skyMusic && shown && current && (

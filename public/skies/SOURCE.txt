@@ -1,0 +1,27 @@
+Sky artwork provenance
+======================
+
+Every file in this folder is a render of the Neonlyrics mod's own sky renderer,
+not an illustration. They were produced by running the MIT-licensed
+`dev-263/neonlyrics/sky/LiveSky.java` from
+
+  https://github.com/mrxennt/neon-lyrics
+
+with the same call the mod uses for its in-game sky-tile thumbnails
+(`dev-263/neonlyrics/hud/SkyThumbs.java`):
+
+  new LiveSky().view(preset, preset.aurora1, preset.aurora2, 12.0,
+                     width, height, lookYaw, -lookPitch, 78.0F)
+
+Look angles per preset are copied from `SkyThumbs.look()` (e.g. SYNTHWAVE 180/11,
+COSMOS 60/28, MATRIX 60/24, default 150/20). Sizes rendered:
+
+  thumb-<preset>.webp   288 × 162  (the exact size of the in-game GUI tiles)
+  scene-<preset>.webp  1280 × 720  (same view at higher resolution for the page)
+
+Preset colours, stars, moon, aurora colours and weather come from
+`dev-263/neonlyrics/sky/SkyPreset.java`. The PNG masters were converted to
+WebP without changing the pixels. LiveSky.view() draws the real horizon and
+terrain silhouette too, which is why the images have the dark hills.
+
+The mod is MIT licensed; the site's Legal section credits it.

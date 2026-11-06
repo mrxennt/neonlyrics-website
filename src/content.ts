@@ -51,6 +51,8 @@ export const downloads = {
 // Skies — the exact constants from dev-263/neonlyrics/sky/SkyPreset.java for
 // the 20 entries the in-game picker shows. toString(16) of each number is the
 // colour the real sky shader paints. Names/descriptions are the en_us strings.
+// The thumbnails/scenes in public/skies are rendered by the mod's own
+// LiveSky.view() at SkyThumbs' look angles — see public/skies/SOURCE.txt.
 // ---------------------------------------------------------------------------
 
 export type Weather = 'none' | 'snow' | 'blizzard' | 'rain' | 'thunder' | 'petals' | 'embers' | 'fireflies'
