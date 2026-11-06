@@ -30,9 +30,6 @@
 
   --shadow-glow: 0 30px 80px -20px rgb(0 0 0 / 0.7);
 
-  --animate-aurora-a: aurora-a 18s ease-in-out infinite alternate;
-  --animate-aurora-b: aurora-b 22s ease-in-out infinite alternate;
-  --animate-aurora-c: aurora-c 26s ease-in-out infinite alternate;
   --animate-marquee: marquee 40s linear infinite;
   --animate-float: float 7s ease-in-out infinite;
   --animate-twinkle: twinkle 3.2s ease-in-out infinite;
@@ -46,18 +43,6 @@
   --animate-word-in: word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-spin-slow: spin360 3.4s linear infinite;
 
-  @keyframes aurora-a {
-    from { transform: translate3d(-10%, -6%, 0) scale(1); }
-    to { transform: translate3d(12%, 8%, 0) scale(1.15); }
-  }
-  @keyframes aurora-b {
-    from { transform: translate3d(8%, 6%, 0) scale(1.1); }
-    to { transform: translate3d(-14%, -4%, 0) scale(0.95); }
-  }
-  @keyframes aurora-c {
-    from { transform: translate3d(0, 10%, 0) scale(0.9); }
-    to { transform: translate3d(6%, -10%, 0) scale(1.2); }
-  }
   @keyframes marquee {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
