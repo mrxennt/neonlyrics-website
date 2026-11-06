@@ -297,15 +297,13 @@ export const defaultSkySettings: SkySettings = {
 }
 
 // ---------------------------------------------------------------------------
-// The demo track — verbatim from LyricsProvider.demo() in the mod source.
-// "Neon Nights (Demo)" by "Lyrics Cord" is the built-in test text the mod
-// plays when you flip Demo lyrics on. Line spacing: first line at 1.5 s,
-// one line every 3.4 s, exactly like demo().
+// The preview track — the mod's built-in sample lyrics, shown under a neutral
+// site label. Line spacing: first line at 1.5 s, one line every 3.4 s.
 // ---------------------------------------------------------------------------
 
 export const demoSong = {
-  title: 'Neon Nights (Demo)',
-  artist: 'Lyrics Cord',
+  title: 'Neonlyrics',
+  artist: 'Live preview',
   lineMs: 3400,
   firstMs: 1500,
   lines: [
@@ -343,7 +341,7 @@ export const hero = {
   title: ['Karaoke lyrics painted', 'across the sky'],
   highlight: 'sky',
   description:
-    'Neonlyrics shows the lyrics of whatever you are listening to, synced line by line: floating 3D lyrics in the sky, a HUD bar at the top of the screen, and a whole restyled game while it is at it — animated skies, glass hotbar, custom fonts. The previews on this page use the mod\'s real config screen and demo lyrics.',
+    'Neonlyrics shows the lyrics of whatever you are listening to, synced line by line: floating 3D lyrics in the sky, a HUD bar at the top of the screen, and a whole restyled game while it is at it — animated skies, glass hotbar, custom fonts.',
   primary: { label: 'Download for 26.3', href: jars[0].href },
   secondary: { label: 'Download for 1.21.11', href: jars[1].href },
   footnote: 'Fabric Loader ≥ 0.20.1 · Fabric API latest for your version · Java ≥ 25 · client-side only, servers need nothing',
@@ -353,7 +351,7 @@ export const features = {
   eyebrow: 'What the mod does',
   title: 'Lyrics, skies and layout, all configurable',
   description:
-    'Everything is client-side, so it works on any server and in any single-player world. Every part below is a page in the real config screen; the preview sections on this page run on the same data the game ships with.',
+    'Everything is client-side, so it works on any server and in any single-player world.',
   items: [
     {
       key: 'world',
@@ -473,7 +471,7 @@ export const legal = {
     {
       key: 'lyrics',
       title: 'Lyrics, covers & audio',
-      text: 'The mod and this site do not host, store or distribute any lyrics, recordings or artwork. Synced lyrics are fetched live from lrclib.net, covers from the iTunes Search API and Spotify itself. Song titles, lyrics, recordings and cover art remain the property of their rights holders. The text in the demo preview is the mod\'s own built-in test lyrics — original text published as mod source.',
+      text: 'The mod and this site do not host, store or distribute any third-party lyrics, recordings or artwork. Synced lyrics are fetched live from lrclib.net, covers from the iTunes Search API and Spotify itself. Song titles, lyrics, recordings and cover art remain the property of their rights holders. The preview’s sample lyrics are the mod’s own MIT-licensed text.',
     },
     {
       key: 'apple',
@@ -534,5 +532,5 @@ export const footer = {
       ],
     },
   ],
-  legal: `© ${year} mrxennt. Fan-made site; the mod is MIT licensed. Not an official Minecraft product; not affiliated with, endorsed by or sponsored by Mojang Studios, Microsoft or Spotify AB. Minecraft is a trademark of Mojang Studios; Spotify is a trademark of Spotify AB. Lyrics and cover art come from LRCLIB and the iTunes Search API at runtime and remain the property of their rights holders. The demo scene uses the mod's own built-in test lyrics.`,
+  legal: `© ${year} mrxennt. Fan-made site; the mod is MIT licensed. Not an official Minecraft product; not affiliated with, endorsed by or sponsored by Mojang Studios, Microsoft or Spotify AB. Minecraft is a trademark of Mojang Studios; Spotify is a trademark of Spotify AB. Lyrics and cover art come from LRCLIB and the iTunes Search API at runtime and remain the property of their rights holders. The preview’s sample lyrics are part of the mod’s MIT-licensed source.`,
 }

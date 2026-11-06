@@ -300,7 +300,7 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
         <SectionHeading
           eyebrow="Live in-game preview"
           title="The mod, running right here"
-          description="The real sky render, the real HUD and the mod's demo lyrics — with the in-game menu built into the frame. Press J (or the button above) to open it and switch the lyrics style between World and Sky while the scene keeps playing."
+          description="The sky, the HUD and the in-game menu, live in the frame. Press J (or the button above) to open it and switch the lyrics style between World and Sky while the scene keeps playing."
         />
 
         <Reveal className="mt-10">
@@ -523,7 +523,7 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
                       <p className="max-w-sm text-[clamp(12px,1.6cqw,16px)] text-white/70">
                         Nothing playing
                         <span className="mt-1 block text-[clamp(10px,1.15cqw,12px)] text-white/40">
-                          Flip “Demo lyrics” on the Spotify page in the menu — press J.
+                          Turn on lyrics on the Spotify page in the menu — press J.
                         </span>
                       </p>
                     </div>
@@ -653,7 +653,7 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
               className="inline-flex h-10 items-center gap-2 rounded-control bg-white/[0.07] px-4 text-[14px] text-fg transition-colors hover:bg-white/[0.12]"
             >
               {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-              {playing ? 'Pause demo' : 'Play demo'}
+              {playing ? 'Pause preview' : 'Play preview'}
             </button>
             <button
               type="button"
@@ -672,9 +672,6 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
               to change it
             </p>
           </div>
-          <p className="mt-3 text-center text-[12px] text-faint">
-            Demo track: the mod&apos;s built-in test lyrics (“Neon Nights (Demo)” by “Lyrics Cord”) — original text from the mod source. The background is the mod&apos;s own sky render.
-          </p>
         </Reveal>
       </Container>
     </section>

@@ -198,7 +198,7 @@ export function ConfigPreview({ settings, setSettings, onRestart, embedded = fal
         <SectionHeading
           eyebrow="Config GUI"
           title="The real menu, every button clickable"
-          description="This is the mod's in-game config screen rebuilt for the browser, with the same pages, rows and factory defaults it ships with. Everything you touch here drives the sky preview above — pick a sky tile and watch it repaint."
+          description="The mod's in-game config screen, with the same pages, rows and factory defaults. Everything you touch here drives the preview above — pick a sky tile and watch it repaint."
         />
 
         <Reveal className="mt-12">{panel}</Reveal>
