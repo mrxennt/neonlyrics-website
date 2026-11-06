@@ -4,6 +4,13 @@ The site for [Neonlyrics](https://github.com/mrxennt/neon-lyrics) — the
 Spotify-style synced karaoke lyrics in 3D in the sky, a client-side Fabric mod
 for Minecraft 26.3 and 1.21.11.
 
+## Live site
+
+[mrxennt.github.io/neonlyrics-website](https://mrxennt.github.io/neonlyrics-website/)
+
+Pushing to `main` builds the static client and publishes it with GitHub Pages
+(`.github/workflows/deploy-pages.yml`).
+
 ## What is on the page
 
 - **Hero + direct downloads** — jar links straight to the v2.1.0 release assets

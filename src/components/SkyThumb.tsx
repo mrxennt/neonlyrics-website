@@ -128,7 +128,7 @@ type Props = {
 export function SkyThumb({ skyIndex, palette, moving = false, className }: Props) {
   const sky: SkyDef = getSky(skyIndex)
   const filter = PALETTES.find((p) => p.key === palette)?.filter ?? 'none'
-  const src = `/skies/${moving ? 'scene' : 'thumb'}-${sky.id}.webp`
+  const src = `${import.meta.env.BASE_URL}skies/${moving ? 'scene' : 'thumb'}-${sky.id}.webp`
 
   return (
     <div aria-hidden className={cx('absolute inset-0 overflow-hidden bg-[#05040a]', className)}>
