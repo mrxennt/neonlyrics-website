@@ -1,83 +1,62 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { Music2, Pause, Play, RotateCcw } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Music2, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Button } from '../components/Button'
 import { Container } from '../components/Container'
 import { Reveal } from '../components/Reveal'
 import { SectionHeading } from '../components/SectionHeading'
+import { SkyThumb, hex } from '../components/SkyThumb'
 import { cx } from '../lib/cx'
-import { demoSong, skyPresets, type SkyPreset, type SkySettings } from '../content'
-import type { CSSProperties } from 'react'
+import { getSky, PALETTES, demoSong, type SkySettings } from '../content'
 
-// ---- Demo-timing model -----------------------------------------------------
-// A small local loop stands in for the mod's audio sync: each word lights up
-// on a fixed beat so the karaoke preview can run offline, with no audio file.
-const WORD = 0.36
-const GAP = 0.16
-const LINE_PAUSE = 1.1
+// The demo follows LyricsProvider.demo() exactly: first line at 1.5 s, one
+// line every 3.4 s, then a 1.5 s gap loop. Word karaoke is spread evenly
+// across each line — the mod's demo lines have no enhanced word tags either.
+const LINE_S = demoSong.lineMs / 1000
+const FIRST_S = demoSong.firstMs / 1000
+const TAIL_S = 1.5
 
-type WordSlot = { text: string; start: number; end: number }
-type LineSlot = { index: number; start: number; end: number; words: WordSlot[] }
+type Slot = { index: number; start: number; end: number; words: string[]; spans: number[] }
 
-function buildSchedule(lines: string[]) {
-  let t = 0
-  const schedule: LineSlot[] = lines.map((line, index) => {
-    const words: WordSlot[] = []
-    for (const w of line.split(' ')) {
-      words.push({ text: w, start: t, end: t + WORD })
-      t += WORD + GAP
+function buildSchedule(lines: string[]): { schedule: Slot[]; total: number } {
+  let t = FIRST_S
+  const schedule: Slot[] = lines.map((line, index) => {
+    const words = line.split(' ')
+    const per = LINE_S / words.length
+    const spans = []
+    for (let w = 0; w < words.length; w++) {
+      spans.push(t + w * per)
     }
-    const slot = { index, start: words[0].start, end: words[words.length - 1].end, words }
-    t += LINE_PAUSE
-    return slot
+    const start = t
+    t += LINE_S
+    return { index, start, end: start + LINE_S, words, spans }
   })
-  return { schedule, total: Math.max(t - LINE_PAUSE + 1.6, 1) }
+  t += TAIL_S
+  return { schedule, total: Math.max(t - TAIL_S + 1.6, 1) }
 }
 
-// ---- Scene details ----------------------------------------------------------
-// Deterministic pseudo-random props so the star field and skyline render the
-// same on every mount without a seed library.
-const stars = Array.from({ length: 72 }, (_, i) => ({
-  left: (i * 37) % 100,
-  top: (i * 23) % 58,
-  size: 1 + ((i * 7) % 3),
-  delay: ((i * 13) % 34) / 10,
-  dur: 2.2 + (i % 5) * 0.7,
-}))
+// Deterministic stars for the scene backdrop (vanilla-style stars stay even
+// when the custom sky is off).
+const STARS = Array.from({ length: 70 }, (_, i) => {
+  const a = Math.sin(i * 12.9898) * 43758.5453
+  const b = Math.sin(i * 78.233) * 12345.6789
+  return { left: (a - Math.floor(a)) * 100, top: (b - Math.floor(b)) * 55, size: 1 + (i % 3), delay: (i % 29) / 9, dur: 2.4 + (i % 5) * 0.6 }
+})
 
-const buildings = Array.from({ length: 22 }, (_, i) => ({
-  x: (i * 100) / 22,
-  w: 3.2 + ((i * 17) % 3),
-  h: 5 + ((i * 29) % 17),
-}))
-
-const pines = Array.from({ length: 13 }, (_, i) => ({ x: i * 8.4, h: 14 + ((i * 19) % 16) }))
-
-function pineClip() {
-  const parts: string[] = ['0% 100%']
-  for (const p of pines) {
-    parts.push(`${p.x}% ${100 - p.h}%`)
-    parts.push(`${p.x + 2.4}% 86%`)
-    parts.push(`${p.x + 4.8}% ${100 - p.h + 4}%`)
-    parts.push(`${p.x + 7.2}% 88%`)
-  }
-  parts.push('100% 100%')
-  return `polygon(${parts.join(',')})`
+// Line entrance variants — the mod's three real animations.
+const animVariants = {
+  fade: { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0, transition: { duration: 0.35 } } },
+  pop: { initial: { opacity: 0, scale: 1.18 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.94, transition: { duration: 0.3 } } },
+  slide: { initial: { opacity: 0, y: 40 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -26, transition: { duration: 0.35 } } },
 }
 
-const presetBackdrop: Record<SkyPreset, string> = {
-  synthwave: 'linear-gradient(180deg, #0a0714 0%, #190b33 34%, #43145f 58%, #8a2160 74%, #ff5b8d 100%)',
-  aurora: 'linear-gradient(180deg, #020712 0%, #05182b 52%, #071f22 78%, #0b2f2a 100%)',
-  nebula: 'linear-gradient(180deg, #03030f 0%, #0a0a2e 45%, #161038 72%, #241147 100%)',
-}
+type Props = { settings: SkySettings; playing: boolean; setPlaying: (v: boolean) => void; restart: number; nextSong: (backwards?: boolean) => void }
 
-type Props = { settings: SkySettings; onPreset: (p: SkyPreset) => void }
-
-export function SkyShowcase({ settings, onPreset }: Props) {
-  const { schedule, total } = useMemo(() => buildSchedule(demoSong.lyrics), [])
-  const [playing, setPlaying] = useState(true)
+export function SkyShowcase({ settings, playing, setPlaying, restart, nextSong }: Props) {
+  const { schedule, total } = useMemo(() => buildSchedule(demoSong.lines), [])
   const [time, setTime] = useState(0)
+  const [flashIntro, setFlashIntro] = useState(false)
+  const restartRef = useRef(0)
 
   useEffect(() => {
     if (!playing) return
@@ -93,248 +72,329 @@ export function SkyShowcase({ settings, onPreset }: Props) {
     return () => cancelAnimationFrame(raf)
   }, [playing, total])
 
-  // Which line is cuing right now — the last one that has started.
+  // Restart demo (Spotify page "Restart demo" / transport buttons): zero the
+  // clock and flash the big song intro title, if fxSongIntro is on.
+  useEffect(() => {
+    if (restartRef.current === restart) return
+    restartRef.current = restart
+    setTime(0)
+    if (settings.intro) {
+      setFlashIntro(true)
+      const t = setTimeout(() => setFlashIntro(false), 2600)
+      return () => clearTimeout(t)
+    }
+  }, [restart, settings.intro])
+
+  const shown = settings.demo && settings.lines
+  // Lyrics offset, like in game: a positive offset makes lyrics show later —
+  // so we evaluate the karaoke at (time - offset).
+  const songTime = Math.max(0, time - settings.offset / 1000)
+
   const current = useMemo(() => {
-    let idx = 0
-    for (let i = 0; i < schedule.length; i++) if (time >= schedule[i].start) idx = i
+    if (!shown) return null
+    let idx = -1
+    for (const sl of schedule) if (songTime >= sl.start) idx = sl.index
+    if (idx < 0) return null
     return schedule[idx]
-  }, [time, schedule])
-  const next = schedule[(current.index + 1) % schedule.length]
+  }, [songTime, schedule, shown])
 
-  const size = 46 * (settings.lyricSize / 100)
-  const opacity = 0.3 + (0.7 * (settings.lyricOpacity / 100))
+  const next = current ? schedule[current.index + 1] ?? null : null
+  const sky = getSky(settings.sky)
+  const lyricHex = hex(settings.color >= 0 ? settings.color : sky.lyricColor)
+  // Font size scales with the scene (container query units) so the card looks
+  // right at every width, and follows the Movie-style size slider (percent).
+  const sizeCqw = (Math.max(40, settings.size) / 100) * 2.4
+  const opacity = Math.max(0.2, settings.opacity / 100)
+  const animKey = (['fade', 'pop', 'slide'] as const)[settings.anim]
+  const paletteFilter = PALETTES.find((p) => p.key === settings.palette)?.filter ?? 'none'
+  const glowPx = settings.glow ? Math.round(10 + 16 * (settings.glowStrength / 100)) : 0
+  const glowSpread = settings.glow ? Math.round(20 + 26 * (settings.glowStrength / 100)) : 0
 
-  const wordClass = (w: WordSlot) => {
-    if (!settings.karaoke) return 'text-fg'
-    const sung = time >= w.end
-    const active = time >= w.start && time < w.end
-    if (active) return 'text-fg'
-    if (sung) return 'text-accent-2'
-    return 'text-fg/40'
+  const wordStyle = (i: number): { className: string; style?: Record<string, string> } => {
+    if (!current) return { className: '' }
+    const sung = songTime >= (current.spans[i + 1] ?? current.end)
+    const active = songTime >= current.spans[i] && !sung
+    const base = 'transition-all duration-150'
+    if (active) {
+      const beat = settings.beat && playing ? ' animate-beat' : ''
+      return { className: cx(base, 'text-white', beat), style: { textShadow: `0 0 ${glowPx}px ${lyricHex}, 0 0 ${glowSpread}px ${lyricHex}88` } }
+    }
+    if (sung) {
+      return {
+        className: cx(base, settings.glow && 'text-white/95'),
+        style: settings.glow ? { textShadow: `0 0 ${Math.round(glowPx / 2)}px ${lyricHex}55` } : undefined,
+      }
+    }
+    return { className: cx(base, 'text-white/35') }
   }
-  // Neon glow, like the mod's "line glow": the active word gets a magenta
-  // halo, everything already sung keeps a softer cyan one while karaoke is on.
-  const wordGlow = (w: WordSlot) => {
-    const active = time >= w.start && time < w.end
-    const sung = time >= w.end
-    if (active) return { ['--neon-c' as string]: 'var(--color-accent)' } as CSSProperties
-    if (settings.karaoke && sung) return { ['--neon-c' as string]: 'var(--color-accent-2)' } as CSSProperties
-    return undefined
-  }
-  const wordNeon = (w: WordSlot) => {
-    if (settings.lineGlow) return true
-    if (settings.karaoke) return time >= w.start
-    return false
-  }
+
+  const barDepth = { textShadow: `0 0 ${glowPx}px ${lyricHex}, 0 0 ${glowSpread}px ${lyricHex}88` } as const
 
   return (
     <section id="sky" className="relative py-20 sm:py-28">
       <Container>
         <SectionHeading
-          eyebrow="Lyrics in the sky"
-          title="What you will see in the world"
-          description="This is the 3D world lyric layer with word-level karaoke, synced to the demo track below. The settings you change in the GUI preview further down update this scene live."
+          eyebrow="In-game preview"
+          title="The sky demo, running on real data"
+          description="This panel is the mod's demo mode — 'Demo lyrics' in the Spotify tab — painted with each sky preset's real colours, weather and lyric colour straight from SkyPreset.java. The config GUI below drives it live."
         />
 
         <Reveal className="mt-12">
           <div className="depth relative mx-auto overflow-hidden rounded-card bg-[#0a0714] shadow-glow">
-            {/* Sky backdrop per preset */}
-            <div className="relative aspect-16/9 sm:aspect-21/9">
-              <div
-                aria-hidden
-                className="absolute inset-0 transition-[background] duration-700"
-                style={{ background: presetBackdrop[settings.preset] }}
-              >
-                {settings.preset === 'synthwave' && (
-                  <>
-                    <div
-                      aria-hidden
-                      className="absolute left-1/2 top-[52%] size-[34%] -translate-x-1/2 rounded-full animate-float [background:linear-gradient(180deg,#ffd166_10%,#ff5b8d_60%,#ff4fd8_100%)] [box-shadow:0_0_80px_30px_rgb(255_91_141/0.35)]"
-                    />
-                    <div
-                      aria-hidden
-                      className="retro-grid animate-grid absolute inset-x-[-30%] bottom-0 top-[72%] [transform:perspective(340px)_rotateX(58deg)] [transform-origin:top]"
-                    />
-                  </>
-                )}
-                {settings.preset === 'aurora' && (
-                  <>
-                    <div aria-hidden className="animate-aurora-a absolute left-[8%] top-[6%] h-[42%] w-[36%] rounded-full bg-accent-2/25 blur-2xl" />
-                    <div aria-hidden className="animate-aurora-b absolute left-[38%] top-[2%] h-[50%] w-[30%] rounded-full bg-accent-3/25 blur-2xl" />
-                    <div aria-hidden className="animate-aurora-c absolute left-[62%] top-[10%] h-[40%] w-[28%] rounded-full bg-accent/20 blur-2xl" />
-                  </>
-                )}
-                {settings.preset === 'nebula' && (
-                  <>
-                    <div aria-hidden className="animate-aurora-a absolute left-[16%] top-[8%] h-[46%] w-[30%] rounded-full [background:radial-gradient(closest-side,rgb(255_79_216/0.4),transparent)] blur-2xl" />
-                    <div aria-hidden className="animate-aurora-c absolute left-[55%] top-[14%] h-[44%] w-[34%] rounded-full [background:radial-gradient(closest-side,rgb(95_243_255/0.28),transparent)] blur-2xl" />
-                    <div aria-hidden className="animate-aurora-b absolute left-[6%] top-[34%] h-[30%] w-[22%] rounded-full [background:radial-gradient(closest-side,rgb(167_139_255/0.3),transparent)] blur-2xl" />
-                  </>
-                )}
-              </div>
-
-              {/* Stars */}
-              <div aria-hidden className="absolute inset-0">
-                {stars.map((s, i) => (
-                  <span
-                    key={i}
-                    className="animate-twinkle absolute rounded-full bg-fg"
-                    style={{
-                      left: `${s.left}%`,
-                      top: `${s.top}%`,
-                      width: s.size,
-                      height: s.size,
-                      animationDelay: `${s.delay}s`,
-                      animationDuration: `${s.dur}s`,
-                      animationPlayState: playing ? 'running' : 'paused',
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Ground: buildings or pines, fog-faded onto the sky */}
-              <div aria-hidden className={cx('absolute inset-x-0 bottom-0', settings.fogFade && 'brightness-125 saturate-75')}>
-                {settings.preset === 'aurora' ? (
-                  <div className="ground-clip absolute inset-x-0 bottom-0 top-[62%] bg-[#04110d]" style={{ clipPath: pineClip() }} />
-                ) : (
-                  <div className="absolute inset-x-0 bottom-0 top-[70%]">
-                    {buildings.map((b, i) => (
-                      <span
-                        key={i}
-                        className="absolute bottom-0 bg-[#0b0812]"
-                        style={{ left: `${b.x}%`, width: `${b.w}%`, height: `${b.h * 3}%` }}
-                      />
+            <div className="relative aspect-16/10 [container-type:inline-size] sm:aspect-21/9">
+              {/* Sky: real preset data (or a plain vanilla night when off) */}
+              {settings.skyEnabled ? (
+                <SkyThumb skyIndex={settings.sky} palette={settings.palette} moving />
+              ) : (
+                <div aria-hidden className="absolute inset-0 [background:linear-gradient(180deg,#05070f_0%,#0a1020_55%,#101a30_100%)]">
+                  <div aria-hidden className="absolute inset-0">
+                    {STARS.slice(0, 40).map((st, i) => (
+                      <span key={i} className={cx('absolute rounded-full bg-white/80', playing && 'animate-twinkle')} style={{ left: `${st.left}%`, top: `${st.top}%`, width: st.size, height: st.size, animationDelay: `${st.delay}s`, animationDuration: `${st.dur}s` }} />
                     ))}
                   </div>
-                )}
-                <div
-                  className={cx('absolute inset-x-0 bottom-0 h-[26%] transition-colors duration-700', settings.fogFade ? 'bg-gradient-to-t from-black/10' : 'bg-gradient-to-t from-black/45')}
-                />
-              </div>
+                </div>
+              )}
 
-              {/* HUD lyric bar — the mod's in-game top bar */}
-              <AnimatePresence>
-                {settings.hudBar && (
-                  <motion.div
-                    key="hud"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -12 }}
-                    className="absolute inset-x-0 top-4 flex justify-center px-4"
-                  >
-                    <div className="depth relative flex max-w-[92%] flex-col items-center gap-0.5 rounded-[12px] bg-black/45 px-4 py-2 text-center backdrop-blur-md">
-                      <p className="truncate text-[12px] font-medium text-fg sm:text-[13px]" style={{ fontFamily: 'var(--font-display)' }}>
-                        {current.words.map((w) => w.text).join(' ')}
-                      </p>
-                      <p className="text-[10px] text-fg/60 sm:text-[11px]">
-                        NEXT · {next.words.map((w) => w.text).join(' ')}
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Ground silhouette + fog fade like the mod's terrain blending */}
+              <div aria-hidden className="absolute inset-x-0 bottom-0 h-[16%] [background:linear-gradient(180deg,transparent,rgb(6_4_10/0.9))]" />
 
-              {/* 3D world lyric layer */}
-              <div className="absolute inset-x-0 top-[30%] flex flex-col items-center px-6 text-center" style={{ perspective: 900 }}>
-                <AnimatePresence mode="popLayout">
-                  {settings.lineAnimation && (
-                    <motion.p
-                      key={current.index}
-                      initial={{ opacity: 0, y: 34, scale: 0.92 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -22, scale: 0.96 }}
-                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                      className="flex flex-wrap justify-center gap-x-3 font-semibold [transform-style:preserve-3d]"
-                      style={{ fontFamily: 'var(--font-display)', fontSize: Math.round(size), opacity: opacity / 100 }}
-                    >
-                      {current.words.map((w, i) => (
-                        <motion.span
-                          key={i}
-                          className={cx('transition-colors duration-150', wordClass(w), wordNeon(w) && 'neon-text')}
-                          style={wordGlow(w)}
-                        >
-                          {w.text}
-                        </motion.span>
-                      ))}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-                {!settings.lineAnimation &&
-                  current.words.map((w, i) => (
-                    <p
-                      key={current.index}
-                      className="flex flex-wrap justify-center gap-x-3 font-semibold"
-                      style={{ fontFamily: 'var(--font-display)', fontSize: Math.round(size), opacity: opacity / 100 }}
-                    >
-                      <span key={i} className={cx('transition-colors duration-150', wordClass(w), wordNeon(w) && 'neon-text')} style={wordGlow(w)}>
-                        {w.text}
-                      </span>
-                    </p>
-                  ))}
-              </div>
-
-              {/* Beat glow behind the lyric row */}
-              {settings.beatGlow && (
+              {/* Music-reactive glow behind the lyric row */}
+              {settings.skyMusic && shown && current && (
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-x-0 top-[22%] h-[34%] animate-pulse rounded-full [background:radial-gradient(50%_60%_at_50%_50%,rgb(255_79_216/0.16),transparent_70%)]"
+                  className={cx('absolute inset-x-0 top-[18%] h-[40%] rounded-full', playing && 'animate-beat')}
+                  style={{
+                    background: `radial-gradient(50% 60% at 50% 50%, ${lyricHex}22, transparent 70%)`,
+                    filter: paletteFilter === 'none' ? undefined : paletteFilter,
+                    transformOrigin: 'center',
+                  }}
                 />
               )}
 
-              {/* Now playing card */}
-              <div className="absolute bottom-4 left-4 flex items-center gap-3 rounded-[14px] bg-black/50 p-2.5 pr-4 backdrop-blur-md">
-                <span className="grid size-9 place-items-center rounded-[9px] [background:linear-gradient(135deg,#ff4fd8,#5ff3ff)]">
-                  <Music2 className="size-4 text-white" />
-                </span>
-                <span className="block min-w-0">
-                  <p className="truncate text-[13px] font-medium text-fg">{demoSong.title}</p>
-                  <p className="text-[11px] text-fg/60">{demoSong.artist}</p>
-                  <span className="mt-1 block h-[3px] w-36 overflow-hidden rounded-full bg-white/15">
-                    <span className="block h-full rounded-full bg-accent-2" style={{ width: `${(time / total) * 100}%` }} />
-                  </span>
-                </span>
-              </div>
+              {/* Top bar (island) — clock, ping, and the current karaoke line */}
+              {settings.topBar && shown && (
+                <div className="absolute inset-x-0 top-3 flex justify-center px-4">
+                  <div className="depth flex max-w-[94%] flex-col items-center gap-0.5 rounded-[12px] bg-black/45 px-4 py-1.5 text-center backdrop-blur-md">
+                    <p className="text-[11px] text-fg/55">
+                      {settings.clock && <>21:47</>}
+                      {settings.clock && settings.ping && ' · '}
+                      {settings.ping && '23 ms'}
+                    </p>
+                    {settings.lyricsInBar && current ? (
+                      <p className="truncate text-[12px] font-medium sm:text-[13px]" style={{ fontFamily: `'${settings.font}', sans-serif`, ...barDepth }}>
+                        {current.words.map((w, i) => {
+                          const sung = songTime >= (current.spans[i + 1] ?? current.end)
+                          return (
+                            <span key={i} className={cx('transition-colors duration-150', sung ? 'text-fg' : 'text-fg/45')}>
+                              {w}{' '}
+                            </span>
+                          )
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] font-medium text-fg/85">{demoSong.title} — {demoSong.artist}</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
-              {/* Equalizer */}
-              <div aria-hidden className="absolute bottom-4 right-4 flex h-8 items-end gap-1">
-                {[0.9, 0.6, 1.1, 0.7, 1].map((d, i) => (
-                  <span
-                    key={i}
-                    className="animate-eq h-full w-1 origin-bottom rounded-full bg-accent-2/80"
-                    style={{ animationDelay: `${d * 0.3}s`, animationDuration: `${d}s`, animationPlayState: playing ? 'running' : 'paused' }}
-                  />
-                ))}
+              {/* Soft scrim keeps the lyric readable over bright skies */}
+              {shown && current && (
+                <div
+                  aria-hidden
+                  className={cx('pointer-events-none absolute inset-x-0 h-[34%] bg-[radial-gradient(70%_100%_at_50%_50%,rgb(3_2_8/0.5),transparent_72%)]', settings.kind === 'sky' ? 'top-[24%]' : 'top-[20%]')}
+                />
+              )}
+
+              {/* The 3D lyric line. Lines are stacked absolutely so the outgoing
+                  and incoming line cross-fade in place instead of reflowing. */}
+              {shown && current && (
+                <div
+                  className={cx('absolute inset-x-0 z-10 px-5 text-center', settings.kind === 'sky' ? 'top-[40%]' : 'top-[33%]')}
+                  style={{ perspective: 900 }}
+                >
+                  <div
+                    className="relative mx-auto max-w-[94%]"
+                    style={{ minHeight: `calc(clamp(16px, ${sizeCqw}cqw, 44px) * 2.3)` }}
+                  >
+                    <AnimatePresence>
+                      <motion.p
+                        key={current.index}
+                        {...animVariants[animKey]}
+                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                        className="absolute inset-x-0 top-0 flex flex-wrap items-baseline justify-center gap-x-[0.28em] gap-y-1 font-semibold leading-[1.15] [transform-style:preserve-3d]"
+                        style={{ fontFamily: `'${settings.font}', sans-serif`, fontSize: `clamp(16px, ${sizeCqw}cqw, 44px)`, opacity }}
+                      >
+                        {current.words.map((w, i) => {
+                          const ws = wordStyle(i)
+                          return (
+                            <span key={i} className={ws.className} style={ws.style}>
+                              {w}
+                            </span>
+                          )
+                        })}
+                      </motion.p>
+                    </AnimatePresence>
+                    {next && (
+                      <p
+                        className="absolute inset-x-0 -bottom-5 text-white/40 sm:-bottom-6"
+                        style={{ fontFamily: `'${settings.font}', sans-serif`, fontSize: `clamp(10px, ${sizeCqw * 0.36}cqw, 16px)` }}
+                      >
+                        {next.words.join(' ')}
+                      </p>
+                    )}
+                  </div>
+                  {settings.translate && (
+                    <p className="mt-6 text-[11px] text-white/25">Translation shows under the bar in game (fetched live)</p>
+                  )}
+                </div>
+              )}
+
+              {/* Not playing — honest empty state, like the real 'Nothing playing' */}
+              {!shown && (
+                <div className="absolute inset-0 grid place-items-center px-6 text-center">
+                  <p className="max-w-sm text-[15px] text-fg/70">
+                    {settings.lines ? 'Nothing playing' : 'Lyrics are off'}
+                    <span className="mt-1 block text-[12px] text-faint">
+                      Flip “Demo lyrics” on the Spotify page in the GUI below to watch the built-in test track.
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {/* Song intro flash, like the mod's song title intro */}
+              <AnimatePresence>
+                {flashIntro && settings.intro && (
+                  <motion.p
+                    key="intro"
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.06 }}
+                    transition={{ duration: 0.5 }}
+                    className="pointer-events-none absolute inset-x-0 top-[30%] text-center font-semibold"
+                    style={{ fontFamily: `'${settings.skyFont}', sans-serif`, fontSize: `clamp(24px, ${sizeCqw * 1.3}cqw, 62px)` }}
+                  >
+                    ♪ {demoSong.title}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              {/* Glass hotbar */}
+              {settings.hotbar && (
+                <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
+                  <div className="flex gap-1 rounded-[12px] bg-black/45 p-1 backdrop-blur-md">
+                    {Array.from({ length: 9 }, (_, i) => (
+                      <span key={i} className={cx('block size-8 rounded-[7px] sm:size-9', i === 0 ? 'bg-white/20' : 'bg-white/[0.07]')} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Now playing: cover card with the record disc peeking out,
+                  top-left like in game. */}
+              {settings.cover && (
+                <div className="absolute left-4 top-14 z-20 hidden items-center sm:flex">
+                  <span className="relative z-10 block size-28 rounded-[20px] bg-[#232029] shadow-[0_24px_60px_-20px_rgb(0_0_0/0.9)] ring-1 ring-white/10">
+                    <Music2 className="absolute left-1/2 top-1/2 size-9 -translate-x-1/2 -translate-y-1/2 text-fg/25" />
+                  </span>
+                  <span className="relative z-0 -ml-6 grid size-24 place-items-center rounded-full bg-[#0e0b16] shadow-[0_18px_40px_-16px_rgb(0_0_0/0.9)] ring-1 ring-white/10">
+                    <span className={cx('absolute inset-0 grid place-items-center', playing && 'animate-spin-slow')}>
+                      <span className="absolute size-7 rounded-full bg-[#1d1826] ring-4 ring-white/10" />
+                      <span className="absolute right-3 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/80" />
+                    </span>
+                    <span aria-hidden className="absolute -right-3 top-1/2 flex -translate-y-1/2 items-end gap-[3px]">
+                      <span className={cx('h-2 w-[3px] origin-bottom rounded-full bg-white/70', playing && 'animate-eq [animation-duration:0.8s]')} />
+                      <span className={cx('h-4 w-[3px] origin-bottom rounded-full bg-white/70', playing && 'animate-eq [animation-duration:1.1s]')} />
+                      <span className={cx('h-3 w-[3px] origin-bottom rounded-full bg-white/70', playing && 'animate-eq [animation-duration:0.9s]')} />
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {/* Now playing card, bottom-left */}
+              {shown && (
+                <div className="absolute bottom-16 left-4 flex items-center gap-3 rounded-[14px] bg-black/50 p-2.5 pr-4 backdrop-blur-md">
+                  <span className="grid size-9 place-items-center rounded-[9px]" style={{ background: `linear-gradient(135deg, ${hex(sky.lyricColor)}, ${hex(sky.aurora1 || sky.horizon)})` }}>
+                    <Music2 className="size-4 text-white" />
+                  </span>
+                  <span className="block min-w-0">
+                    <p className="max-w-[220px] truncate text-[13px] font-medium text-fg">{demoSong.title}</p>
+                    <p className="text-[11px] text-fg/60">{demoSong.artist}</p>
+                    <span className="mt-1 block h-[3px] w-36 overflow-hidden rounded-full bg-white/15">
+                      <span className="block h-full rounded-full" style={{ width: `${(time / total) * 100}%`, background: lyricHex }} />
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {/* Transport: prev · play/pause · next, like the in-game buttons.
+                  Next/prev trigger 'New song, new sky' via nextSong(). */}
+              <div className="absolute bottom-4 right-4 z-20 flex items-end gap-3">
+                <span aria-hidden className="flex h-6 items-end gap-1">
+                  {[0.9, 0.55, 1.1, 0.4, 0.8].map((d, i) => (
+                    <span
+                      key={i}
+                      className={cx('animate-eq h-full w-1 origin-bottom rounded-full bg-white/80', !playing && 'scale-y-50')}
+                      style={{ animationDelay: `${d * 0.27}s`, animationDuration: `${d}s` }}
+                    />
+                  ))}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Previous song"
+                  onClick={() => nextSong(true)}
+                  className="grid size-11 place-items-center rounded-full bg-black/40 text-fg backdrop-blur-md transition-colors hover:bg-black/60"
+                >
+                  <SkipBack className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Play or pause"
+                  onClick={() => setPlaying(!playing)}
+                  className="grid size-14 place-items-center rounded-full bg-white text-[#16121d] shadow-[0_18px_40px_-12px_rgb(255_255_255/0.35)] transition-transform hover:scale-105"
+                >
+                  {playing ? <Pause className="size-6" /> : <Play className="size-6 translate-x-0.5" />}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next song"
+                  onClick={() => nextSong(false)}
+                  className="grid size-11 place-items-center rounded-full bg-black/40 text-fg backdrop-blur-md transition-colors hover:bg-black/60"
+                >
+                  <SkipForward className="size-5" />
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Controls */}
+          {/* Scene controls */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <Button variant="secondary" onClick={() => setPlaying((p) => !p)}>
+            <button
+              type="button"
+              onClick={() => setPlaying(!playing)}
+              className="inline-flex h-10 items-center gap-2 rounded-control bg-white/[0.07] px-4 text-[14px] text-fg transition-colors hover:bg-white/[0.12]"
+            >
               {playing ? <Pause /> : <Play />}
               {playing ? 'Pause demo' : 'Play demo'}
-            </Button>
-            <Button variant="ghost" onClick={() => setTime(0)}>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlaying(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-control bg-white/[0.07] px-4 text-[14px] text-fg transition-colors hover:bg-white/[0.12]"
+            >
               <RotateCcw />
               Restart
-            </Button>
-            <span className="mx-2 hidden h-6 w-px bg-line sm:block" />
-            {skyPresets.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onPreset(p.id)}
-                className={cx(
-                  'h-10 rounded-control px-4 text-[14px] transition-colors',
-                  settings.preset === p.id ? 'bg-white/[0.1] text-fg' : 'text-muted hover:bg-white/[0.05] hover:text-fg',
-                )}
-              >
-                {p.name}
-              </button>
-            ))}
+            </button>
+            <span className="mx-1 hidden h-6 w-px bg-line sm:block" />
+            <p className="text-[13px] text-faint">
+              Sky: <span className="text-fg/80">{settings.skyEnabled ? getSky(settings.sky).name : 'off'}</span> · Font: <span className="text-fg/80">{settings.font}</span> · pick them in the{' '}
+              <a href="#gui" className="text-accent underline decoration-line hover:text-fg">
+                config GUI
+              </a>
+            </p>
           </div>
           <p className="mt-3 text-center text-[12px] text-faint">
-            Demo track times sit in website time, not the mod's audio sync — in game the words follow your player.
+            Demo track: the mod&apos;s built-in test lyrics (“Neon Nights (Demo)” by “Lyrics Cord”) — original text from the mod source. In game, real songs&apos; words follow your player.
           </p>
         </Reveal>
       </Container>

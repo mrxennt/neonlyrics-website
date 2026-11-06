@@ -19,8 +19,10 @@ export function Footer() {
               <p className="text-[13px] font-medium text-fg">{col.title}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {col.links.map((link) => (
-                  <li key={link} className="text-[13px] text-muted transition-colors hover:text-fg">
-                    {link}
+                  <li key={link.label}>
+                    <a href={link.href} className="text-[13px] text-muted transition-colors hover:text-fg">
+                      {link.label}
+                    </a>
                   </li>
                 ))}
               </ul>
