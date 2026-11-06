@@ -194,7 +194,7 @@ export type SkySettings = {
   skyMusic: boolean // Sky reacts to music
   // Lyrics page
   lines: boolean // Show lyrics (Config: lyricsSky)
-  kind: 'world' | 'sky' // Lyrics style: World floats at eye level, Sky paints high above (Config: lyricsStyle 0/1)
+  kind: 'world' | 'sky' // Lyrics style: World = the mod's floating words in front of you, Sky = lines up overhead (Config: lyricsStyle 1/0)
   follow: boolean // Follow view vs view lock (Config: lyricsFollow)
   underground: boolean // Show underground too
   color: number // -1 = match the sky (Config: lyricsColor)

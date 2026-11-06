@@ -487,7 +487,7 @@ function LyricsPage({
         <ToggleRow title="Show lyrics" sub="Lyrics in 3D in the world" checked={s.lines} onChange={(v) => set({ lines: v })} />
         <SegmentRow
           title="Lyrics style"
-          sub="World floats at eye level, Sky paints them high overhead"
+          sub="World floats each word in front of you, Sky paints the line up in the sky"
           options={[
             { value: 'world', label: 'World' },
             { value: 'sky', label: 'Sky' },

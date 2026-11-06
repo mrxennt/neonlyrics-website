@@ -34,6 +34,85 @@ function buildSchedule(lines: string[]): { schedule: Slot[]; total: number } {
   return { schedule, total: Math.max(t - TAIL_S + 1.6, 1) }
 }
 
+// FloatWords.java splits a line into chunks, glues words of three letters or
+// fewer to the next one, strips punctuation and uppercases the result.
+const cleanWord = (w: string) => w.replace(/[^\p{L}\p{N}*']/gu, '')
+
+type FloatChunk = { text: string; first: number }
+
+function chunksOf(line: Slot): FloatChunk[] {
+  const chunks: FloatChunk[] = []
+  let i = 0
+  while (i < line.words.length) {
+    const a = cleanWord(line.words[i])
+    if (!a) {
+      i++
+      continue
+    }
+    let text = a
+    let used = 1
+    if (a.length <= 3 && i + 1 < line.words.length) {
+      const b = cleanWord(line.words[i + 1])
+      if (b) {
+        text = `${a} ${b}`
+        used = 2
+      }
+    }
+    chunks.push({ text: text.toUpperCase(), first: i })
+    i += used
+  }
+  return chunks
+}
+
+// FloatWords' slots span ±26° across and ±16° up/down; mapped into the frame
+// they stay in the open middle band, clear of the island and the hotbar.
+const FLOAT_SLOTS = [
+  { x: 25, y: 40 },
+  { x: 72, y: 51 },
+  { x: 46, y: 68 },
+  { x: 65, y: 33 },
+  { x: 18, y: 60 },
+  { x: 55, y: 29 },
+  { x: 35, y: 55 },
+  { x: 81, y: 41 },
+  { x: 60, y: 71 },
+  { x: 21, y: 71 },
+  { x: 43, y: 32 },
+  { x: 78, y: 63 },
+] as const
+
+function wordHash(a: number, b: number) {
+  let h = 2166136261
+  h = Math.imul(h ^ a, 16777619)
+  h = Math.imul(h ^ b, 16777619)
+  return h >>> 0
+}
+
+// Assign every line a set of slots that the line before it is not using, so
+// the outgoing words and the new ones never sit on top of each other.
+function slotMap(schedule: Slot[]): number[][] {
+  let taken = new Set<number>()
+  return schedule.map((line) => {
+    const used = new Set<number>()
+    const slots = chunksOf(line).map((_, ci) => {
+      const start = wordHash(line.index + 1, ci + 3) % FLOAT_SLOTS.length
+      let slot = -1
+      for (let step = 0; step < FLOAT_SLOTS.length; step++) {
+        const candidate = (start + step) % FLOAT_SLOTS.length
+        if (!taken.has(candidate) && !used.has(candidate)) {
+          slot = candidate
+          break
+        }
+      }
+      if (slot < 0) slot = (start + ci) % FLOAT_SLOTS.length
+      used.add(slot)
+      return slot
+    })
+    taken = used
+    return slots
+  })
+}
+
 // Deterministic vanilla stars for the 'sky disabled' fallback.
 const STARS = Array.from({ length: 70 }, (_, i) => {
   const a = Math.sin(i * 12.9898) * 43758.5453
@@ -143,6 +222,41 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
   const glowPx = settings.glow ? Math.round(10 + 16 * (settings.glowStrength / 100)) : 0
   const glowSpread = settings.glow ? Math.round(20 + 26 * (settings.glowStrength / 100)) : 0
   const skyStyle = settings.kind === 'sky'
+  const floatSlots = useMemo(() => slotMap(schedule), [schedule])
+
+  // The mod's World style is FloatWords: one billboard per word chunk, placed
+  // around the view as it is sung, with the previous line fading out.
+  const floating = useMemo(() => {
+    type FloatWord = { key: string; text: string; x: number; y: number; scale: number; rx: number; ry: number; rz: number; fade: number }
+    if (settings.kind !== 'world' || !shown || !current) return [] as FloatWord[]
+    const words: FloatWord[] = []
+    const add = (line: Slot, fade: number, all: boolean) => {
+      chunksOf(line).forEach((chunk, ci) => {
+        if (!all && songTime < line.spans[chunk.first]) return
+        const slot = FLOAT_SLOTS[floatSlots[line.index]?.[ci] ?? ci % FLOAT_SLOTS.length]
+        const h = wordHash(line.index + 1, chunk.first + 7)
+        words.push({
+          key: `${line.index}-${chunk.first}`,
+          text: chunk.text,
+          x: slot.x + ((h % 5) - 2) * 1.1,
+          y: slot.y + (((h >>> 3) % 5) - 2) * 1.2,
+          scale: 0.86 + (((h >>> 6) % 100) / 100) * 0.42,
+          rx: (((h >>> 10) % 11) - 5) * 1.1,
+          ry: (((h >>> 14) % 13) - 6) * 1.3,
+          rz: (((h >>> 18) % 15) - 7) * 1.4,
+          fade,
+        })
+      })
+    }
+    const prev = current.index > 0 ? schedule[current.index - 1] : null
+    if (prev) {
+      const k = Math.min(1, Math.max(0, (songTime - current.start) / 2.2))
+      if (k < 1) add(prev, 1 - k * k, true)
+    }
+    add(current, 1, false)
+    return words
+  }, [current, floatSlots, schedule, settings.kind, shown, songTime])
+
   const closeMenu = () => setMenuOpen(false)
 
   const wordStyle = (i: number): { className: string; style?: Record<string, string> } => {
@@ -315,20 +429,59 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
                     </div>
                   )}
 
-                  {/* Scrim for readability */}
-                  {shown && current && (
+                  {/* Sky style: one line painted high over the world. */}
+                  {shown && current && skyStyle && (
                     <div
                       aria-hidden
-                      className={cx('pointer-events-none absolute inset-x-0 h-[34%] bg-[radial-gradient(70%_100%_at_50%_50%,rgb(3_2_8/0.45),transparent_72%)]', skyStyle ? 'top-[18%]' : 'top-[30%]')}
+                      className="pointer-events-none absolute inset-x-0 top-[18%] h-[38%] bg-[radial-gradient(70%_100%_at_50%_50%,rgb(3_2_8/0.5),transparent_72%)]"
                     />
                   )}
 
-                  {/* The 3D lyric line */}
-                  {shown && current && (
+                  {/* World style: the mod's floating words — each chunk is its own
+                      billboard in front of you, like FloatWords.java. */}
+                  {shown && current && !skyStyle && (
                     <div
-                      className={cx('absolute inset-x-0 px-5 text-center', skyStyle ? 'top-[26%]' : 'top-[42%]')}
-                      style={{ perspective: 700 }}
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 overflow-hidden bg-[radial-gradient(60%_55%_at_50%_52%,rgb(3_2_8/0.2),transparent_75%)]"
                     >
+                      {floating.map((f) => (
+                        <div
+                          key={f.key}
+                          className="absolute"
+                          style={{
+                            left: `${f.x}%`,
+                            top: `${f.y}%`,
+                            opacity: Math.max(0, Math.min(1, f.fade)) * opacity,
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <div className="animate-word-in">
+                            <div className={playing ? 'animate-float' : ''} style={{ animationDelay: `${(f.x % 5) * 0.37}s` }}>
+                              <span
+                                className="block whitespace-nowrap font-semibold uppercase leading-none"
+                                style={{
+                                  fontFamily: `'${settings.font}', sans-serif`,
+                                  fontSize: `clamp(12px, ${sizeCqw * f.scale * 0.78}cqw, 42px)`,
+                                  letterSpacing: '0.02em',
+                                  color: '#fff',
+                                  textShadow: settings.glow
+                                    ? `0 2px 6px rgb(0 0 0 / 0.8), 0 0 ${glowPx}px ${lyricHex}, 0 0 ${glowSpread}px ${lyricHex}66`
+                                    : '0 2px 6px rgb(0 0 0 / 0.8)',
+                                  transform: `perspective(600px) rotateX(${f.rx}deg) rotateY(${f.ry}deg) rotateZ(${f.rz}deg)`,
+                                }}
+                              >
+                                {f.text}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Sky style: the karaoke line itself. */}
+                  {shown && current && skyStyle && (
+                    <div className="absolute inset-x-0 top-[26%] px-5 text-center" style={{ perspective: 700 }}>
                       <div className="relative mx-auto max-w-[92%]" style={{ minHeight: `calc(clamp(15px, ${sizeCqw}cqw, 46px) * 2.2)` }}>
                         <AnimatePresence>
                           <motion.p
@@ -338,10 +491,8 @@ export function SkyShowcase({ settings, setSettings, playing, setPlaying, restar
                             className="absolute inset-x-0 top-0 flex flex-wrap items-baseline justify-center gap-x-[0.28em] gap-y-1 font-semibold leading-[1.15] [transform-style:preserve-3d]"
                             style={{
                               fontFamily: `'${settings.font}', sans-serif`,
-                              fontSize: `clamp(15px, ${skyStyle ? sizeCqw * 1.12 : sizeCqw}cqw, ${skyStyle ? 52 : 46}px)`,
+                              fontSize: `clamp(15px, ${sizeCqw * 1.12}cqw, 52px)`,
                               opacity,
-                              transform: skyStyle ? undefined : 'perspective(700px) rotateX(8deg)',
-                              transformOrigin: 'center 70%',
                             }}
                           >
                             {current.words.map((w, i) => {

@@ -43,6 +43,7 @@
   --animate-fall: fall linear infinite;
   --animate-rise: rise linear infinite;
   --animate-beat: beat 0.62s ease-out infinite;
+  --animate-word-in: word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-spin-slow: spin360 3.4s linear infinite;
 
   @keyframes aurora-a {
@@ -64,6 +65,10 @@
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
+  }
+  @keyframes word-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.72); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
   @keyframes twinkle {
     0%, 100% { opacity: 0.15; transform: scale(0.7); }
