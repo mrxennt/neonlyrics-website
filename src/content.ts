@@ -438,10 +438,6 @@ export const faq = {
       a: 'Two ways. On Windows, "Automatic" reads the system media session — open any player, no login, no client ID. Otherwise connect Spotify through your own Spotify app via OAuth; the in-game tutorial (Tutorial button on the Spotify page) walks through it step by step.',
     },
     {
-      q: 'How do I unlock the mod?',
-      a: 'Press J in game and paste the licence code you received with your ticket. The code validates against the mod\'s licence service; without a valid code the game shows the unlock screen instead of the sky.',
-    },
-    {
       q: 'Can I build it from source?',
       a: 'Yes: ./gradlew build. Sources compile as Java 25 bytecode but fork onto a JDK 26 install (set it in build.gradle), while Gradle itself runs on a JDK 25 (org.gradle.java.home).',
     },
