@@ -194,7 +194,7 @@ export type SkySettings = {
   skyMusic: boolean // Sky reacts to music
   // Lyrics page
   lines: boolean // Show lyrics (Config: lyricsSky)
-  kind: 'sky' | 'float' // Lyrics style (Config: lyricsStyle 0/1)
+  kind: 'world' | 'sky' // Lyrics style: World floats at eye level, Sky paints high above (Config: lyricsStyle 0/1)
   follow: boolean // Follow view vs view lock (Config: lyricsFollow)
   underground: boolean // Show underground too
   color: number // -1 = match the sky (Config: lyricsColor)
@@ -255,7 +255,7 @@ export const defaultSkySettings: SkySettings = {
   constellations: true, // Config: true
   skyMusic: true, // Config: true
   lines: true, // Config: lyricsSky
-  kind: 'sky', // Config: lyricsStyle 0
+  kind: 'world', // website start state; the Lyrics page switches World ↔ Sky
   follow: true, // Config: lyricsFollow
   underground: false, // Config: false
   color: -1, // Config: -1 (match the sky)

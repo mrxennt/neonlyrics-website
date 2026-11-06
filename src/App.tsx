@@ -41,7 +41,15 @@ export function App() {
       <Nav />
       <main>
         <Hero />
-        <SkyShowcase settings={settings} playing={playing} setPlaying={setPlaying} restart={restart} nextSong={nextSong} />
+        <SkyShowcase
+          settings={settings}
+          setSettings={setSettings}
+          playing={playing}
+          setPlaying={setPlaying}
+          restart={restart}
+          nextSong={nextSong}
+          onRestart={restartDemo}
+        />
         <ConfigPreview settings={settings} setSettings={setSettings} onRestart={restartDemo} />
         <Features />
         <Install />

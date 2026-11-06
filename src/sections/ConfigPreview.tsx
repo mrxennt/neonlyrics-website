@@ -57,9 +57,12 @@ type Props = {
   settings: SkySettings
   setSettings: (update: (s: SkySettings) => SkySettings) => void
   onRestart?: () => void
+  // The same window, rendered inside the live preview (no section chrome).
+  embedded?: boolean
+  onClose?: () => void
 }
 
-export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
+export function ConfigPreview({ settings, setSettings, onRestart, embedded = false, onClose }: Props) {
   const [page, setPage] = useState<PageId>('sky')
   const [open, setOpen] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
@@ -80,20 +83,28 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
 
   const pageInfo = { sky: ['Sky', 'Pick your sky and fine-tune it'], lyrics: ['Lyrics', 'How and where lyrics appear'], spotify: ['Spotify', 'Connection to your music'], display: ['Display', 'Top bar, hotbar and menu'], menu: ['Menu', 'How the menu opens and looks'], performance: ['Performance', 'Always smooth — the mod tunes itself'], saved: ['Saved', 'Saved lines and recently played'] } as const
 
-  return (
-    <section id="gui" className="relative py-20 sm:py-28">
-      <Container>
-        <SectionHeading
-          eyebrow="Config GUI"
-          title="The real menu, every button clickable"
-          description="This is the mod's in-game config screen rebuilt for the browser, with the same pages, rows and factory defaults it ships with. Everything you touch here drives the sky preview above — pick a sky tile and watch it repaint."
-        />
-
-        <Reveal className="mt-12">
-          <div className="gui-window depth relative mx-auto max-w-[980px] overflow-hidden rounded-card bg-[#1b1622]/95 shadow-glow backdrop-blur-xl">
-            <div className={cx('grid grid-cols-[92px_1fr] sm:grid-cols-[112px_1fr]', !open && 'pointer-events-none opacity-90')}>
+  const panel = (
+    <div
+      className={cx(
+        'gui-window depth relative overflow-hidden bg-[#1b1622]/95 shadow-glow backdrop-blur-xl',
+        embedded ? 'h-full w-full rounded-none' : 'mx-auto max-w-[980px] rounded-card',
+      )}
+    >
+            <div
+              className={cx(
+                'grid grid-cols-[92px_1fr] sm:grid-cols-[112px_1fr]',
+                !open && 'pointer-events-none opacity-90',
+                embedded && 'h-full min-h-0 [grid-template-rows:minmax(0,1fr)]',
+              )}
+            >
               {/* Sidebar — icon over label like the in-game menu */}
-              <nav aria-label="Menu pages" className="flex flex-col items-center gap-1 border-r border-white/5 py-4">
+              <nav
+                aria-label="Menu pages"
+                className={cx(
+                  'flex flex-col items-center gap-1 border-r border-white/5 py-4',
+                  embedded && 'gap-0.5 overflow-y-auto py-2',
+                )}
+              >
                 {PAGES.map((p) => (
                   <button
                     key={p.id}
@@ -104,7 +115,8 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
                       setOpen(true)
                     }}
                     className={cx(
-                      'flex w-[76px] flex-col items-center gap-1 rounded-2xl py-3 text-[12px] leading-none transition-colors',
+                      'flex w-[76px] flex-col items-center gap-1 rounded-2xl text-[12px] leading-none transition-colors',
+                      embedded ? 'py-2' : 'py-3',
                       page === p.id ? 'bg-white font-semibold text-[#16121d]' : 'text-fg/75 hover:bg-white/[0.06] hover:text-fg',
                     )}
                   >
@@ -115,8 +127,8 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
               </nav>
 
               {/* Panel */}
-              <div className="relative">
-                <div className="flex items-start justify-between px-5 pt-5 sm:px-7">
+              <div className={cx('relative', embedded && 'flex min-h-0 flex-col')}>
+                <div className={cx('flex items-start justify-between', embedded ? 'px-4 pt-4' : 'px-5 pt-5 sm:px-7')}>
                   <div>
                     <h3 className="text-[20px] font-semibold tracking-tight sm:text-[24px]">{pageInfo[page][0]}</h3>
                     <p className="text-[13px] text-muted sm:text-[14px]">{pageInfo[page][1]}</p>
@@ -124,14 +136,19 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
                   <button
                     type="button"
                     aria-label="Close menu"
-                    onClick={() => setOpen(false)}
+                    onClick={() => (onClose ? onClose() : setOpen(false))}
                     className="grid size-9 place-items-center rounded-[12px] text-muted transition-colors hover:bg-white/[0.08] hover:text-fg"
                   >
                     <X className="size-5" />
                   </button>
                 </div>
 
-                <div className="gui-scroll mt-4 max-h-[480px] overflow-y-auto px-5 pb-8 sm:px-7">
+                <div
+                  className={cx(
+                    'gui-scroll overflow-y-auto',
+                    embedded ? 'mt-3 min-h-0 flex-1 px-4 pb-5' : 'mt-4 max-h-[480px] px-5 pb-8 sm:px-7',
+                  )}
+                >
                   {page === 'sky' && <SkyPage s={s} set={set} cycleFont={cycleFont} />}
                   {page === 'lyrics' && <LyricsPage s={s} set={set} cycleFont={cycleFont} />}
                   {page === 'spotify' && <SpotifyPage s={s} set={set} setToast={setToast} onRestart={onRestart} />}
@@ -155,7 +172,7 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
             </div>
 
             {/* Closed menu — the replica matches the in-game flow: press J to reopen */}
-            {!open && (
+            {!open && !embedded && (
               <button
                 type="button"
                 onClick={() => setOpen(true)}
@@ -171,7 +188,20 @@ export function ConfigPreview({ settings, setSettings, onRestart }: Props) {
               </button>
             )}
           </div>
-        </Reveal>
+  )
+
+  if (embedded) return panel
+
+  return (
+    <section id="gui" className="relative py-20 sm:py-28">
+      <Container>
+        <SectionHeading
+          eyebrow="Config GUI"
+          title="The real menu, every button clickable"
+          description="This is the mod's in-game config screen rebuilt for the browser, with the same pages, rows and factory defaults it ships with. Everything you touch here drives the sky preview above — pick a sky tile and watch it repaint."
+        />
+
+        <Reveal className="mt-12">{panel}</Reveal>
 
         <p className="mx-auto mt-6 max-w-[720px] text-center text-[12px] leading-relaxed text-faint">
           Same rows, same factory defaults as the mod&apos;s Config.java — the only difference is that
@@ -457,9 +487,10 @@ function LyricsPage({
         <ToggleRow title="Show lyrics" sub="Lyrics in 3D in the world" checked={s.lines} onChange={(v) => set({ lines: v })} />
         <SegmentRow
           title="Lyrics style"
+          sub="World floats at eye level, Sky paints them high overhead"
           options={[
+            { value: 'world', label: 'World' },
             { value: 'sky', label: 'Sky' },
-            { value: 'float', label: 'Floating' },
           ]}
           value={s.kind}
           onChange={(v) => set({ kind: v })}
